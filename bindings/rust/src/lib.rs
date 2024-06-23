@@ -865,6 +865,14 @@ macro_rules! sig_variant_impl {
             pub fn to_bytes(&self) -> [u8; $pk_comp_size] {
                 self.compress()
             }
+
+            pub fn to_affine(&self) -> $pk_aff {
+                self.point.clone()
+            }
+
+            pub fn from_affine(affine: $pk_aff) -> Self {
+                Self { point: affine }
+            }
         }
 
         // Trait for equality comparisons which are equivalence relations.
@@ -944,52 +952,6 @@ macro_rules! sig_variant_impl {
                             &mut agg_pk.point,
                             &agg_pk.point,
                             &s.point,
-                        );
-                    }
-                }
-                Ok(agg_pk)
-            }
-
-            pub fn aggregate_with_randomness(
-                pks: &[&PublicKey],
-                pks_validate: bool,
-                scalars: &[&[u8]],
-                nbits: usize,
-            ) -> Result<Self, BLST_ERROR> {
-                if pks.len() == 0 {
-                    return Err(BLST_ERROR::BLST_AGGR_TYPE_MISMATCH);
-                }
-                if pks_validate {
-                    pks[0].validate()?;
-                }
-                let mut agg_pk = AggregatePublicKey::from_public_key(&pks[0]);
-                unsafe {
-                    // convert byte length to bit length
-                    $pk_mult(
-                        &mut agg_pk.point,
-                        &agg_pk.point,
-                        scalars[0].as_ptr(),
-                        nbits,
-                    );
-                }
-                for (i, to_aggregate) in pks.iter().enumerate().skip(1) {
-                    if pks_validate {
-                        to_aggregate.validate()?;
-                    }
-                    let mut raw_point = <$pk>::default();
-                    unsafe {
-                        $pk_from_aff(&mut raw_point, &to_aggregate.point);
-                        // convert byte length to bit length
-                        $pk_mult(
-                            &mut raw_point,
-                            &raw_point,
-                            scalars[i].as_ptr(),
-                            nbits,
-                        );
-                        $pk_add_or_dbl(
-                            &mut agg_pk.point,
-                            &agg_pk.point,
-                            &raw_point,
                         );
                     }
                 }
@@ -1398,6 +1360,14 @@ macro_rules! sig_variant_impl {
                 self.compress()
             }
 
+            pub fn to_affine(&self) -> $sig_aff {
+                self.point.clone()
+            }
+
+            pub fn from_affine(affine: $sig_aff) -> Self {
+                Self { point: affine }
+            }
+
             pub fn subgroup_check(&self) -> bool {
                 unsafe { $sig_in_group(&self.point) }
             }
@@ -1492,55 +1462,6 @@ macro_rules! sig_variant_impl {
                             &mut agg_sig.point,
                             &agg_sig.point,
                             &s.point,
-                        );
-                    }
-                }
-                Ok(agg_sig)
-            }
-
-            pub fn aggregate_with_randomness(
-                sigs: &[&Signature],
-                sigs_groupcheck: bool,
-                scalars: &[&[u8]],
-                nbits: usize,
-            ) -> Result<Self, BLST_ERROR> {
-                if sigs.len() == 0 {
-                    return Err(BLST_ERROR::BLST_AGGR_TYPE_MISMATCH);
-                }
-                if sigs_groupcheck {
-                    // We can't actually judge if input is individual or
-                    // aggregated signature, so we can't enforce infinity
-                    // check.
-                    sigs[0].validate(false)?;
-                }
-                let mut agg_sig = AggregateSignature::from_signature(&sigs[0]);
-                unsafe {
-                    // convert byte length to bit length
-                    $sig_mult(
-                        &mut agg_sig.point,
-                        &agg_sig.point,
-                        scalars[0].as_ptr(),
-                        nbits,
-                    );
-                }
-                for (i, to_aggregate) in sigs.iter().enumerate().skip(1) {
-                    if sigs_groupcheck {
-                        to_aggregate.validate(false)?;
-                    }
-                    let mut raw_point = <$sig>::default();
-                    unsafe {
-                        $sig_from_aff(&mut raw_point, &to_aggregate.point);
-                        // convert byte length to bit length
-                        $sig_mult(
-                            &mut raw_point,
-                            &raw_point,
-                            scalars[i].as_ptr(),
-                            nbits,
-                        );
-                        $sig_add_or_dbl(
-                            &mut agg_sig.point,
-                            &agg_sig.point,
-                            &raw_point,
                         );
                     }
                 }
